@@ -86,6 +86,14 @@
         .rainbow { background: linear-gradient(45deg, red, yellow, blue, magenta); }
 
         canvas { display: block; }
+
+        /* 手机端适配 */
+        @media (max-width: 768px) {
+            #status-bar { font-size: 11px; padding: 6px 14px; top: 12px; }
+            button { font-size: 14px; padding: 8px 20px; }
+            .color-dot { width: 24px; height: 24px; }
+            #controls { bottom: 20px; gap: 10px; }
+        }
         
         #hint {
             position: absolute;
@@ -101,7 +109,7 @@
 <body>
 
     <div id="status-bar">Shape: Sphere</div>
-    <div id="hint">鼠标左键旋转 | 滚轮缩放 | 右键平移</div>
+    <div id="hint" class="hint-text">鼠标左键旋转 | 滚轮缩放 | 右键平移</div>
 
     <div id="controls">
         <button id="change-shape">Change Shape</button>
@@ -113,12 +121,12 @@
         </div>
     </div>
 
-    <!-- 引入 Three.js 和 OrbitControls -->
+    <!-- 引入 Three.js 和 OrbitControls (国内镜像 CDN) -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
             }
         }
     </script>
@@ -128,7 +136,9 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // --- 配置 ---
-        const PARTICLE_COUNT = 15000;
+        // 手机端减少粒子数量以保证性能
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const PARTICLE_COUNT = isMobile ? 8000 : 15000;
         const shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
         let currentShapeIndex = 0;
         let isMorphing = false;
@@ -179,6 +189,11 @@
 
             window.addEventListener('resize', onWindowResize);
             document.getElementById('change-shape').addEventListener('click', transitionToNextShape);
+
+            // 手机端提示文字
+            if (isMobile) {
+                document.getElementById('hint').innerText = '滑动旋转 | 双指缩放 | 拖动平移';
+            }
             
             document.querySelectorAll('.color-dot').forEach(dot => {
                 dot.addEventListener('click', (e) => {
