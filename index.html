@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 粒子变形特效</title>
+    <title>3D 粒子交互特效</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             color: white;
             user-select: none;
         }
@@ -21,82 +21,87 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.6);
-            padding: 10px 20px;
-            border-radius: 10px;
+            padding: 8px 18px;
+            border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
             z-index: 10;
             pointer-events: none;
-            font-size: 14px;
-            letter-spacing: 1px;
+            font-size: 13px;
+            text-transform: uppercase;
         }
 
         /* 底部控制面板 */
         #controls {
             position: absolute;
-            bottom: 40px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
             z-index: 10;
         }
 
         button {
-            background: #23395d;
+            background: #1a2a44;
             color: white;
-            border: 1px solid #4a6fa5;
-            padding: 12px 30px;
-            font-size: 18px;
-            border-radius: 8px;
+            border: 1px solid #3a5a8f;
+            padding: 10px 25px;
+            font-size: 16px;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         button:hover {
-            background: #3a5a8f;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
-        }
-
-        button:active {
-            transform: translateY(1px);
+            background: #2b4570;
+            border-color: #44ffaa;
         }
 
         .color-picker {
             display: flex;
-            gap: 15px;
+            gap: 12px;
         }
 
         .color-dot {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             cursor: pointer;
-            border: 2px solid white;
-            transition: transform 0.2s;
+            border: 2px solid rgba(255,255,255,0.5);
+            transition: transform 0.2s, border-color 0.2s;
         }
 
         .color-dot:hover {
-            transform: scale(1.2);
+            transform: scale(1.1);
+            border-color: white;
         }
 
-        .orange { background: linear-gradient(to bottom right, #ffcc33, #ff6600); }
-        .green  { background: linear-gradient(to bottom right, #a8ff78, #08ffc8); }
-        .purple { background: linear-gradient(to bottom right, #8e2de2, #4a00e0); }
-        .rainbow { background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); }
+        .orange { background: #ffaa33; }
+        .green  { background: #44ffaa; }
+        .purple { background: #aa44ff; }
+        .rainbow { background: linear-gradient(45deg, red, yellow, blue, magenta); }
 
-        canvas {
-            display: block;
+        canvas { display: block; }
+        
+        #hint {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="status-bar">Shape: Sphere (Click to morph)</div>
+    <div id="status-bar">Shape: Sphere</div>
+    <div id="hint">鼠标左键旋转 | 滚轮缩放 | 右键平移</div>
 
     <div id="controls">
         <button id="change-shape">Change Shape</button>
@@ -108,7 +113,7 @@
         </div>
     </div>
 
-    <!-- 引入 Three.js -->
+    <!-- 引入 Three.js 和 OrbitControls -->
     <script type="importmap">
         {
             "imports": {
@@ -120,47 +125,49 @@
 
     <script type="module">
         import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // --- 配置 ---
         const PARTICLE_COUNT = 15000;
         const shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
         let currentShapeIndex = 0;
         let isMorphing = false;
-        let colorMode = 'orange';
+        let colorMode = 'solid';
 
         // --- 核心变量 ---
-        let scene, camera, renderer, particles;
-        let positions = []; // 存储各个形状的点位
-        let currentPositions; // BufferAttribute
+        let scene, camera, renderer, particles, controls;
+        let positions = []; 
+        let currentPositions; 
 
         init();
         animate();
 
         function init() {
-            // 场景
             scene = new THREE.Scene();
             
-            // 相机
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
+            camera.position.z = 6;
 
-            // 渲染器
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // 创建所有形状的数据
+            // 【关键点】添加轨道控制器
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // 增加阻尼感，让旋转更顺滑
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;    // 默认开启自动慢速旋转
+            controls.autoRotateSpeed = 0.5;
+
             createShapes();
 
-            // 初始粒子系统
             const geometry = new THREE.BufferGeometry();
             currentPositions = new THREE.Float32BufferAttribute(positions[0], 3);
             geometry.setAttribute('position', currentPositions);
 
-            // 粒子材质
             const material = new THREE.PointsMaterial({
-                size: 0.015,
+                size: 0.02,
                 color: 0xffaa33,
                 transparent: true,
                 opacity: 0.8,
@@ -170,7 +177,6 @@
             particles = new THREE.Points(geometry, material);
             scene.add(particles);
 
-            // 事件监听
             window.addEventListener('resize', onWindowResize);
             document.getElementById('change-shape').addEventListener('click', transitionToNextShape);
             
@@ -185,82 +191,63 @@
                     }
                 });
             });
+
+            // 当用户手动开始操作时，可以根据需要停止或保持自动旋转
+            controls.addEventListener('start', () => {
+                // 如果你想点击拖动时彻底停止自动旋转，可以取消下面注释
+                // controls.autoRotate = false;
+            });
         }
 
         function createShapes() {
-            // 1. Sphere (球体)
+            // 球体
             const spherePos = [];
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
                 const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
-                spherePos.push(
-                    2 * Math.cos(theta) * Math.sin(phi),
-                    2 * Math.sin(theta) * Math.sin(phi),
-                    2 * Math.cos(phi)
-                );
+                spherePos.push(2.5 * Math.cos(theta) * Math.sin(phi), 2.5 * Math.sin(theta) * Math.sin(phi), 2.5 * Math.cos(phi));
             }
             positions.push(spherePos);
 
-            // 2. Cube (立方体)
+            // 立方体
             const cubePos = [];
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                cubePos.push(
-                    (Math.random() - 0.5) * 3,
-                    (Math.random() - 0.5) * 3,
-                    (Math.random() - 0.5) * 3
-                );
+                cubePos.push((Math.random()-0.5)*3.5, (Math.random()-0.5)*3.5, (Math.random()-0.5)*3.5);
             }
             positions.push(cubePos);
 
-            // 3. Pyramid (金字塔/圆锥)
+            // 金字塔
             const pyramidPos = [];
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const r = Math.random() * 2;
-                const theta = Math.random() * 2 * Math.PI;
-                const h = Math.random() * 3;
-                const currentR = r * (1 - h/3);
-                pyramidPos.push(
-                    currentR * Math.cos(theta),
-                    h - 1.5,
-                    currentR * Math.sin(theta)
-                );
+                const h = Math.random() * 4;
+                const r = (h / 4) * 2;
+                const theta = Math.random() * Math.PI * 2;
+                pyramidPos.push(r * Math.cos(theta), h - 2, r * Math.sin(theta));
             }
             positions.push(pyramidPos);
 
-            // 4. Torus (圆环)
+            // 圆环
             const torusPos = [];
-            const R = 2, r = 0.6;
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const u = Math.random() * 2 * Math.PI;
-                const v = Math.random() * 2 * Math.PI;
-                torusPos.push(
-                    (R + r * Math.cos(v)) * Math.cos(u),
-                    (R + r * Math.cos(v)) * Math.sin(u),
-                    r * Math.sin(v)
-                );
+                const u = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
+                torusPos.push((2.2 + 0.7 * Math.cos(v)) * Math.cos(u), (2.2 + 0.7 * Math.cos(v)) * Math.sin(u), 0.7 * Math.sin(v));
             }
             positions.push(torusPos);
 
-            // 5. Galaxy (银河系)
+            // 银河
             const galaxyPos = [];
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const angle = Math.random() * Math.PI * 10;
-                const radius = Math.random() * 2.5 + 0.2;
-                const spiral = angle * 0.2;
-                galaxyPos.push(
-                    Math.cos(angle + radius) * radius,
-                    (Math.random() - 0.5) * 0.2,
-                    Math.sin(angle + radius) * radius
-                );
+                const angle = Math.random() * Math.PI * 8;
+                const radius = Math.random() * 3;
+                galaxyPos.push(Math.cos(angle + radius) * radius, (Math.random() - 0.5) * 0.3, Math.sin(angle + radius) * radius);
             }
             positions.push(galaxyPos);
 
-            // 6. Wave (波浪)
+            // 波浪
             const wavePos = [];
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const x = (Math.random() - 0.5) * 6;
-                const z = (Math.random() - 0.5) * 6;
-                const y = Math.sin(x * 2) * Math.cos(z * 2) * 0.5;
+                const x = (Math.random() - 0.5) * 7, z = (Math.random() - 0.5) * 7;
+                const y = Math.sin(x) * Math.cos(z) * 0.8;
                 wavePos.push(x, y, z);
             }
             positions.push(wavePos);
@@ -268,22 +255,19 @@
 
         function transitionToNextShape() {
             if (isMorphing) return;
-            
             isMorphing = true;
-            const statusBar = document.getElementById('status-bar');
-            statusBar.innerText = "Morphing...";
+            document.getElementById('status-bar').innerText = "Morphing...";
 
             const nextIndex = (currentShapeIndex + 1) % shapes.length;
             const targetPos = positions[nextIndex];
             const startPos = Array.from(currentPositions.array);
 
             let progress = 0;
-            const duration = 60; // 帧数
+            const duration = 50; 
 
             function step() {
                 progress++;
                 const t = progress / duration;
-                // 使用 Ease-in-out 平滑函数
                 const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
                 for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
@@ -296,7 +280,7 @@
                 } else {
                     currentShapeIndex = nextIndex;
                     isMorphing = false;
-                    statusBar.innerText = `Shape: ${shapes[currentShapeIndex]} (Click to morph)`;
+                    document.getElementById('status-bar').innerText = `Shape: ${shapes[currentShapeIndex]}`;
                 }
             }
             step();
@@ -311,9 +295,8 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // 缓慢旋转场景
-            particles.rotation.y += 0.002;
-            particles.rotation.x += 0.001;
+            // 更新控制器
+            controls.update(); 
 
             // 彩虹模式
             if(colorMode === 'rainbow') {
