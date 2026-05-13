@@ -6,110 +6,52 @@
     <title>3D 粒子交互特效</title>
     <style>
         body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Segoe UI', sans-serif;
-            color: white;
-            user-select: none;
+            margin: 0; overflow: hidden; background-color: #000;
+            font-family: 'Segoe UI', sans-serif; color: white; user-select: none;
         }
-
-        /* 顶部状态栏 */
         #status-bar {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px 18px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(8px);
-            z-index: 10;
-            pointer-events: none;
-            font-size: 13px;
-            text-transform: uppercase;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(8px);
+            z-index: 10; pointer-events: none; font-size: 13px; text-transform: uppercase;
         }
-
-        /* 底部控制面板 */
         #controls {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            z-index: 10;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 10;
         }
-
         button {
-            background: #1a2a44;
-            color: white;
-            border: 1px solid #3a5a8f;
-            padding: 10px 25px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            background: #1a2a44; color: white; border: 1px solid #3a5a8f;
+            padding: 10px 25px; font-size: 16px; border-radius: 5px; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-
-        button:hover {
-            background: #2b4570;
-            border-color: #44ffaa;
-        }
-
-        .color-picker {
-            display: flex;
-            gap: 12px;
-        }
-
+        button:hover { background: #2b4570; border-color: #44ffaa; }
+        .color-picker { display: flex; gap: 12px; }
         .color-dot {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.5);
-            transition: transform 0.2s, border-color 0.2s;
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.5); transition: transform 0.2s, border-color 0.2s;
         }
-
-        .color-dot:hover {
-            transform: scale(1.1);
-            border-color: white;
-        }
-
+        .color-dot:hover { transform: scale(1.1); border-color: white; }
         .orange { background: #ffaa33; }
         .green  { background: #44ffaa; }
         .purple { background: #aa44ff; }
         .rainbow { background: linear-gradient(45deg, red, yellow, blue, magenta); }
-
         canvas { display: block; }
-
-        /* 手机端适配 */
+        #hint {
+            position: absolute; bottom: 10px; width: 100%; text-align: center;
+            font-size: 10px; color: rgba(255,255,255,0.4); pointer-events: none;
+        }
         @media (max-width: 768px) {
             #status-bar { font-size: 11px; padding: 6px 14px; top: 12px; }
             button { font-size: 14px; padding: 8px 20px; }
             .color-dot { width: 24px; height: 24px; }
             #controls { bottom: 20px; gap: 10px; }
         }
-        
-        #hint {
-            position: absolute;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            font-size: 10px;
-            color: rgba(255,255,255,0.4);
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
 
     <div id="status-bar">Shape: Sphere</div>
-    <div id="hint" class="hint-text">鼠标左键旋转 | 滚轮缩放 | 右键平移</div>
+    <div id="hint">鼠标左键旋转 | 滚轮缩放 | 右键平移</div>
 
     <div id="controls">
         <button id="change-shape">Change Shape</button>
@@ -121,40 +63,31 @@
         </div>
     </div>
 
-    <!-- 引入 Three.js 和 OrbitControls (国内镜像 CDN) -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    <!-- 本地加载 Three.js r128 (UMD 格式，无需网络) -->
+    <script src="lib/three.min.js"></script>
+    <script src="lib/OrbitControls.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    <script>
+    (function(){
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) document.getElementById('hint').innerText = '滑动旋转 | 双指缩放 | 拖动平移';
 
-        // --- 配置 ---
-        // 手机端减少粒子数量以保证性能
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const PARTICLE_COUNT = isMobile ? 8000 : 15000;
-        const shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
-        let currentShapeIndex = 0;
-        let isMorphing = false;
-        let colorMode = 'solid';
+        var PARTICLE_COUNT = isMobile ? 8000 : 15000;
+        var shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
+        var currentShapeIndex = 0;
+        var isMorphing = false;
+        var colorMode = 'solid';
 
-        // --- 核心变量 ---
-        let scene, camera, renderer, particles, controls;
-        let positions = []; 
-        let currentPositions; 
+        var scene, camera, renderer, particles, controls;
+        var positions = [];
+        var currentPositions;
 
         init();
         animate();
 
         function init() {
             scene = new THREE.Scene();
-            
+
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 6;
 
@@ -163,20 +96,19 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // 【关键点】添加轨道控制器
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true; // 增加阻尼感，让旋转更顺滑
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.autoRotate = true;    // 默认开启自动慢速旋转
+            controls.autoRotate = true;
             controls.autoRotateSpeed = 0.5;
 
             createShapes();
 
-            const geometry = new THREE.BufferGeometry();
-            currentPositions = new THREE.Float32BufferAttribute(positions[0], 3);
+            var geometry = new THREE.BufferGeometry();
+            currentPositions = new THREE.BufferAttribute(new Float32Array(positions[0]), 3);
             geometry.setAttribute('position', currentPositions);
 
-            const material = new THREE.PointsMaterial({
+            var material = new THREE.PointsMaterial({
                 size: 0.02,
                 color: 0xffaa33,
                 transparent: true,
@@ -190,15 +122,10 @@
             window.addEventListener('resize', onWindowResize);
             document.getElementById('change-shape').addEventListener('click', transitionToNextShape);
 
-            // 手机端提示文字
-            if (isMobile) {
-                document.getElementById('hint').innerText = '滑动旋转 | 双指缩放 | 拖动平移';
-            }
-            
-            document.querySelectorAll('.color-dot').forEach(dot => {
-                dot.addEventListener('click', (e) => {
-                    const color = e.target.dataset.color;
-                    if(color === 'rainbow') {
+            document.querySelectorAll('.color-dot').forEach(function(dot) {
+                dot.addEventListener('click', function(e) {
+                    var color = e.target.dataset.color;
+                    if (color === 'rainbow') {
                         colorMode = 'rainbow';
                     } else {
                         colorMode = 'solid';
@@ -206,63 +133,57 @@
                     }
                 });
             });
-
-            // 当用户手动开始操作时，可以根据需要停止或保持自动旋转
-            controls.addEventListener('start', () => {
-                // 如果你想点击拖动时彻底停止自动旋转，可以取消下面注释
-                // controls.autoRotate = false;
-            });
         }
 
         function createShapes() {
             // 球体
-            const spherePos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
-                const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
+            var spherePos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                var phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
+                var theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
                 spherePos.push(2.5 * Math.cos(theta) * Math.sin(phi), 2.5 * Math.sin(theta) * Math.sin(phi), 2.5 * Math.cos(phi));
             }
             positions.push(spherePos);
 
             // 立方体
-            const cubePos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            var cubePos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
                 cubePos.push((Math.random()-0.5)*3.5, (Math.random()-0.5)*3.5, (Math.random()-0.5)*3.5);
             }
             positions.push(cubePos);
 
             // 金字塔
-            const pyramidPos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const h = Math.random() * 4;
-                const r = (h / 4) * 2;
-                const theta = Math.random() * Math.PI * 2;
+            var pyramidPos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                var h = Math.random() * 4;
+                var r = (h / 4) * 2;
+                var theta = Math.random() * Math.PI * 2;
                 pyramidPos.push(r * Math.cos(theta), h - 2, r * Math.sin(theta));
             }
             positions.push(pyramidPos);
 
             // 圆环
-            const torusPos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const u = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
+            var torusPos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                var u = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
                 torusPos.push((2.2 + 0.7 * Math.cos(v)) * Math.cos(u), (2.2 + 0.7 * Math.cos(v)) * Math.sin(u), 0.7 * Math.sin(v));
             }
             positions.push(torusPos);
 
             // 银河
-            const galaxyPos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const angle = Math.random() * Math.PI * 8;
-                const radius = Math.random() * 3;
+            var galaxyPos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                var angle = Math.random() * Math.PI * 8;
+                var radius = Math.random() * 3;
                 galaxyPos.push(Math.cos(angle + radius) * radius, (Math.random() - 0.5) * 0.3, Math.sin(angle + radius) * radius);
             }
             positions.push(galaxyPos);
 
             // 波浪
-            const wavePos = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const x = (Math.random() - 0.5) * 7, z = (Math.random() - 0.5) * 7;
-                const y = Math.sin(x) * Math.cos(z) * 0.8;
+            var wavePos = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                var x = (Math.random() - 0.5) * 7, z = (Math.random() - 0.5) * 7;
+                var y = Math.sin(x) * Math.cos(z) * 0.8;
                 wavePos.push(x, y, z);
             }
             positions.push(wavePos);
@@ -273,19 +194,19 @@
             isMorphing = true;
             document.getElementById('status-bar').innerText = "Morphing...";
 
-            const nextIndex = (currentShapeIndex + 1) % shapes.length;
-            const targetPos = positions[nextIndex];
-            const startPos = Array.from(currentPositions.array);
+            var nextIndex = (currentShapeIndex + 1) % shapes.length;
+            var targetPos = positions[nextIndex];
+            var startPos = Array.from(currentPositions.array);
 
-            let progress = 0;
-            const duration = 50; 
+            var progress = 0;
+            var duration = 50;
 
             function step() {
                 progress++;
-                const t = progress / duration;
-                const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                var t = progress / duration;
+                var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-                for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
+                for (var i = 0; i < PARTICLE_COUNT * 3; i++) {
                     currentPositions.array[i] = startPos[i] + (targetPos[i] - startPos[i]) * ease;
                 }
                 currentPositions.needsUpdate = true;
@@ -295,7 +216,7 @@
                 } else {
                     currentShapeIndex = nextIndex;
                     isMorphing = false;
-                    document.getElementById('status-bar').innerText = `Shape: ${shapes[currentShapeIndex]}`;
+                    document.getElementById('status-bar').innerText = 'Shape: ' + shapes[currentShapeIndex];
                 }
             }
             step();
@@ -309,18 +230,16 @@
 
         function animate() {
             requestAnimationFrame(animate);
+            controls.update();
 
-            // 更新控制器
-            controls.update(); 
-
-            // 彩虹模式
-            if(colorMode === 'rainbow') {
-                const time = Date.now() * 0.001;
+            if (colorMode === 'rainbow') {
+                var time = Date.now() * 0.001;
                 particles.material.color.setHSL(time % 1, 0.7, 0.6);
             }
 
             renderer.render(scene, camera);
         }
+    })();
     </script>
 </body>
 </html>
